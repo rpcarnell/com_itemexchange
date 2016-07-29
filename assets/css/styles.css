@@ -1,0 +1,36 @@
+.itemsother
+{
+    float: left;
+    margin: 5px;
+    padding: 5px;
+    background: #fff;
+    display: block;
+    width: 150px;
+    text-align: center;
+    cursor:pointer;
+    border: 1px solid #000;
+}
+
+
+.submisList li
+{
+    background: #fff !important;
+    padding: 5px;
+    cursor:pointer;
+    list-style: none;
+    border: 1px solid #aaa;
+    border-radius: 5px;
+    margin-top: 3px;
+    width: 300px;
+}
+
+#yesnobutton div
+{
+    float: left;
+    padding: 5px;
+    background: #ffd;
+    margin: 4px;
+    border: 1px solid #000;
+    width: 50px;
+    text-align: center;
+}
