@@ -1,6 +1,3 @@
-# Jenkinsfile
-# Build and test a Maven project
-
 node {
   git url: 'https://github.com/rpcarnell/com_itemexchange.git'
   def mvnHome = tool 'M3'
