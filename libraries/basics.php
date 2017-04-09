@@ -24,5 +24,12 @@ class basicsExchange
         if (!is_numeric($id)) { return 0; }
         return $id;
     }
+    public function getUserAvatar($id, & $cronDb)
+    {
+         if (!is_numeric($id)) return false;
+         $query = "SELECT avatar, thumb FROM #__community_users WHERE userid = $id LIMIT 1";
+         $rows = $cronDb->getRow($query);
+         return $rows ;
+    }
 }
 ?>
