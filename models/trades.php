@@ -1,7 +1,7 @@
 <?php
 defined( '_JEXEC' ) or die( 'Restricted access' );
 jimport('joomla.application.component.model');
-class ieModelTrades extends JModelLegacy 
+class ieModelTrades extends JModelLegacy
 {
     var $cronDb;
     public function __construct() { parent::__construct(); $this->cronDb = new CronDb(); }
@@ -10,8 +10,87 @@ class ieModelTrades extends JModelLegacy
         if (!is_numeric($userid) || $userid == 0) { echo "ERROR - invalid userid"; return false; }
         $query = "SELECT *, a.date_added as date_posted FROM #__itemexch_items as a INNER JOIN #__directcron_items as b ON a.itemid = b.id WHERE a.userid= $userid";
         $rows = $this->cronDb->getRows($query);
-        return $rows;
+        return $rows ;
     }
+    public function getMyTrades($userid, $tradeType = '')//function is nearly identicañ to getAllTrades
+    {
+		 if (!is_numeric($userid) || $userid == 0) return false;
+		  
+		 switch ((string)$tradeType)
+		 {
+			 case "3":
+			     $AND = " AND status =3";
+			     break;
+			 case "2":
+			     $AND = " AND status =2";
+			     break;
+			 case "1":
+			     $AND = " AND status =1";
+			     break;
+			  case "0":
+			     $AND = " AND status =0";
+			     break;     
+			  default:
+			     $AND = " AND status != 0";
+		 }
+		 $query = "SELECT count(*) FROM #__itemexch_fulltrade WHERE (dealer_1 = $userid OR dealer_2 = $userid) $AND";
+         $total = $this->cronDb->getOneValue($query);
+         if ( $total == false || $total == 0) { return false; }
+         
+         jimport('joomla.html.pagination');
+         $limitstart = JRequest::getInt('limitstart');
+         $limit = JRequest::getVar( "viewlistlimit", '10', 'get', 'int');
+         $query = "SELECT * FROM #__itemexch_fulltrade WHERE (dealer_1 = $userid OR dealer_2 = $userid) $AND  LIMIT $limitstart, $limit";
+         
+         $pagination = new JPagination($total, $limitstart, $limit);
+         $rows = $this->cronDb->getRows($query);
+         return array($rows, $limitstart, $pagination->getPagesLinks());
+	}
+    public function getAllTrades($userid)
+    {
+         if (!is_numeric($userid) || $userid == 0) return false;
+         $query = "SELECT count(*) FROM #__itemexch_trades WHERE buyer=$userid OR seller = $userid";
+         $total = $this->cronDb->getOneValue($query);
+         if ( $total == false || $total == 0) { return false; }/*return $data;*/
+         jimport('joomla.html.pagination');
+         $limitstart = JRequest::getInt('limitstart');
+         $limit = JRequest::getVar( "viewlistlimit", '10', 'get', 'int');
+         $query = "SELECT * FROM #__itemexch_trades WHERE buyer=$userid OR seller = $userid LIMIT $limitstart, $limit";
+         $pagination = new JPagination($total, $limitstart, $limit);
+         $rows = $this->cronDb->getRows($query);
+         return array($rows, $limitstart, $pagination->getPagesLinks());
+    }
+    public function getRequstedByUser($seller, $buyer, $is_verified = 0, $is_sent = 0)
+	{
+		 if (!is_numeric($seller)) return false;
+		 if (!is_numeric($buyer)) return false;
+		 $queryBuyer = ($buyer == 0) ? '' : "AND a.buyer = $buyer";
+         $query = "SELECT count(*) FROM #__itemexch_trades as a WHERE a.num_of > 0 AND a.is_sent = $is_sent AND a.is_verified = $is_verified $queryBuyer AND a.seller = $seller LIMIT 1";
+       // echo $query;
+         $total = $this->cronDb->getOneValue($query);
+         if ( $total == false || $total == 0) { return false; } 
+         jimport('joomla.html.pagination');
+         $limitstart = JRequest::getInt('limitstart');
+         $limit = JRequest::getVar( "viewlistlimit", '10', 'get', 'int');
+         $query = "SELECT a.*, b.item, b.image FROM #__itemexch_trades as a INNER JOIN #__directcron_items as b ON a.item_id = b.id WHERE a.num_of > 0 AND a.is_sent = $is_sent AND a.is_verified = $is_verified $queryBuyer AND a.seller = $seller LIMIT $limitstart, $limit";
+         $pagination = new JPagination($total, $limitstart, $limit);
+         $rows = $this->cronDb->getRows($query);
+         //echo $query;
+         return array($rows, $limitstart, $pagination->getPagesLinks());
+	}
+	public function getTradeInfo($trade_id)
+	{
+		 if (!is_numeric($trade_id)) return false;
+		 $query = "SELECT * FROM #__itemexch_trades WHERE id = $trade_id LIMIT 1";
+         return $this->cronDb->getRow($query);
+	} 
+	public function getItem($id)
+    {
+		 if (!is_numeric($id)) return false;
+		 $query = "SELECT * FROM #__directcron_items WHERE id = $id LIMIT 1";
+         return $this->cronDb->getRow($query);
+	}
+	
 }
 
 
@@ -22,12 +101,12 @@ class ieModelTrades extends JModelLegacy
 	// load UDDEIM (PMS) component configuration
 	require_once($mainframe->getCfg('absolute_path') . "/administrator/components/com_uddeim/config.class.php");
 	// load UDDEIM component encryption file
-	require_once($mainframe->getCfg('absolute_path') . "/components/com_uddeim/crypt.class.php");	
-	require_once($mainframe->getCfg('absolute_path') . "/administrator/components/com_uddeim/admin.shared.php");	
+	require_once($mainframe->getCfg('absolute_path') . "/components/com_uddeim/crypt.class.php");
+	require_once($mainframe->getCfg('absolute_path') . "/administrator/components/com_uddeim/admin.shared.php");
 */
 class mosDBTable
 {
-    
+
 }
 	class synJmoviesPost extends mosDBTable
 	{
@@ -43,22 +122,22 @@ class mosDBTable
 		var $post_date = null;
 		/** @var int */
 		var $is_requested = null;
-		
+
 		function synJmoviesPost( &$db )
 		{
 			$this->mosDBTable( '#__jmovies_posts', 'id', $db );
 		}
-		
+
 		function loadMovie( $movieid )
 		{
 			global $database;
-			
-			$query = 'SELECT id' 
-					. ' FROM #__jmovies_posts' 
+
+			$query = 'SELECT id'
+					. ' FROM #__jmovies_posts'
 					. ' WHERE jmovies_id =' . (int)$movieid;
 			$database->setQuery( $query );
 			$id = $database->loadResult();
-			
+
 			$this->load( $id ? $id : 0 );
 		}
 		function getMovie($movieid)//Redacron alteration: this function was added to get information about a movie
@@ -79,9 +158,9 @@ class mosDBTable
 			$this->trade_points = $trade_points;
 			$this->post_date = $post_date;
 			$this->is_requested = $is_requested;
-			
+
 			$this->check();
-			
+
 			if( $this->store() )
 			{
 				return true;
@@ -89,7 +168,7 @@ class mosDBTable
 				return false;
 			}
 		}
-		
+
 		function updateRequestStatus( $new_status )
 		{
 			global $database;
@@ -108,11 +187,11 @@ class mosDBTable
 
 			return true;
 		}
-		
+
 		function deletePost()
 		{
 			global $database;
-			
+
 			$query = 'DELETE FROM #__jmovies_posts'
 					. ' WHERE id=' . (int)$this->id;
 			$database->setQuery( $query );
@@ -123,11 +202,11 @@ class mosDBTable
 				return false;
 			}
 		}
-		
+
 		function getTradeCount()
 		{
 			global $database;
-			
+
 			$query = 'SELECT COUNT(jmovies_id)'
 					. ' FROM #__jmovies_posts'
 					. ' WHERE jmovies_id =' . (int)$this->jmovies_id
@@ -136,16 +215,16 @@ class mosDBTable
 
 			return $database->loadResult();
 		}
-		
+
 		function isMovieSold()
 		{
 			if(is_null($this->jmovies_id)) {  return true;  }
 		}
-		
+
 		function getItems()
 		{
 			global $database;
-			
+
 			$query = 'SELECT jp.user_id, jp.jmovies_id, jp.trade_points, jp.post_date, jp.is_requested'
 					. ', j.titolo'
 					. ' FROM #__jmovies_points jp'
@@ -155,7 +234,7 @@ class mosDBTable
 			return $database->loadAssocList();
 		}
 	}
-	
+
 	class synJmoviesTrading extends mosDBTable
 	{
 		/** @var int */
@@ -180,22 +259,22 @@ class mosDBTable
 		var $show_buyer = null;
 		/** @var int */
 		var $show_seller = null;
-		
+
 		function synJmoviesTrading( &$db )
 		{
 			$this->mosDBTable( '#__jmovies_trades', 'id', $db );
 		}
-		
+
 		function loadPost( $post_id )
 		{
 			global $database;
-			
+
 			$query = 'SELECT id'
 					. ' FROM #__jmovies_trades'
 					. ' WHERE post_id=' . (int)$post_id;
 			$database->setQuery( $query );
-			
-			$this->load($id ? $id : 0);			
+
+			$this->load($id ? $id : 0);
 		}
 	        function getMovieId( $post_id)//Redacron function
                 {
@@ -212,7 +291,7 @@ class mosDBTable
 		function getListByMovie( $movie_id )
 		{
 			global $database;
-			
+
 			$query = 'SELECT jt.*, j.titolo, j.titolo2, u1.name `Buyer`, u2.name `Seller`'
 					. ' FROM #__jmovies_trades jt, #__jmovies_posts jp, #__jmovies j, #__users u1, #__users u2'
 					. ' WHERE j.id = jp.jmovies_id'
@@ -222,14 +301,14 @@ class mosDBTable
 					. ' AND u2.id = jt.seller'
 					. ' AND jp.jmovies_id =' . (int)$movie_id;
 			$database->setQuery( $query );
-			
+
 			return $database->loadAssocList();
 		}
 
 		function getListByBuyer( $buyer_id )
 		{
 			global $database;
-			
+
 			$query = 'SELECT jt.*, j.titolo, j.titolo2, u1.name `Buyer`, u2.name `Seller`'
 					. ' FROM #__jmovies_trades jt, #__jmovies_posts jp, #__jmovies j, #__users u1, #__users u2'
 					. ' WHERE j.id = jp.jmovies_id'
@@ -239,14 +318,14 @@ class mosDBTable
 					. ' AND u2.id = jt.seller'
 					. ' AND jt.buyer =' . (int)$buyer_id;
 			$database->setQuery( $query );
-			
+
 			return $database->loadAssocList();
 		}
 
 		function getListBySeller( $seller_id )
 		{
 			global $database;
-			
+
 			$query = 'SELECT jt.*, j.titolo, j.titolo2, u1.name `Buyer`, u2.name `Seller`'
 					. ' FROM #__jmovies_trades jt, #__jmovies_posts jp, #__jmovies j, #__users u1, #__users u2'
 					. ' WHERE j.id = jp.jmovies_id'
@@ -256,14 +335,14 @@ class mosDBTable
 					. ' AND u2.id = jt.seller'
 					. ' AND jt.seller =' . (int)$seller_id;
 			$database->setQuery( $query );
-			
+
 			return $database->loadAssocList();
 		}
-		
+
 		function verifyTrade( $status, $buyerid = '')//Redacron alteration, there was no ID here before
 		{
 			global $database;
-			
+
 			if(is_bool($status))
 			{
 				if($status) {
@@ -281,9 +360,9 @@ class mosDBTable
 				}
 			}
 			else { return false; }
-			
-			
-			// update varified status and 
+
+
+			// update varified status and
 			// if status is 1 (verify) then
 			// remove trade from seller list
                         /* Alteration by Redacron Studios: show_seller is no longer being set to 1 */
@@ -310,7 +389,7 @@ class mosDBTable
 				return false;
 			}
 		}
-		
+
 		function sendItem( $status )
 		{
 			global $database;
@@ -332,29 +411,12 @@ class mosDBTable
 				}
 			}
 			else { return false; }
-			
+
 			$query = 'UPDATE #__jmovies_trades'
 					. ' SET is_sent=' . (int)$new_status
 					. ' WHERE id=' . (int)$this->id;
 			$database->setQuery( $query );
-			
-			if($database->query())
-			{
-				return true;
-			} else {
-				return false;
-			}		
-		}
-		
-		function updateTracking( $tracking_details )
-		{
-			global $database;
-			
-			$query = 'UPDATE #__jmovies_trades'
-					. ' SET tracking=\'' . $tracking_details . '\''
-					. ' WHERE id=' . (int)$this->id;
-			$database->setQuery( $query );
-			
+
 			if($database->query())
 			{
 				return true;
@@ -362,7 +424,24 @@ class mosDBTable
 				return false;
 			}
 		}
-		
+
+		function updateTracking( $tracking_details )
+		{
+			global $database;
+
+			$query = 'UPDATE #__jmovies_trades'
+					. ' SET tracking=\'' . $tracking_details . '\''
+					. ' WHERE id=' . (int)$this->id;
+			$database->setQuery( $query );
+
+			if($database->query())
+			{
+				return true;
+			} else {
+				return false;
+			}
+		}
+
 		function tradeItem( $buyer, $seller, $post_id, $trade_date, $is_varified, $is_sent, $tracking=null )
 		{
 			$this->id = 0;
@@ -379,9 +458,9 @@ class mosDBTable
 			}
 			$this->show_buyer = 1;
 			$this->show_seller = 1;
-			
+
 			$this->check();
-			
+
 			if($this->store())
 			{
 				@$this->__SendMailToSeller( false );//Redacron enabled this
@@ -391,7 +470,7 @@ class mosDBTable
 				return false;
 			}
 		}
-		
+
 		function deleteTrade()
 		{
 			global $database, $cinConfig;
@@ -413,12 +492,12 @@ class mosDBTable
                          * Alteration made by Redacron.com for mydvdtrader.com on November 22nd. 2009
                          *
                          */
-                     
+
                                    $points = AlphaUserPointsHelper::getUserInfo ('', $this->seller );
                                    $tradepoints = $points->points;
 
-                                
-                                
+
+
 				//$objSeller->tradepoints -= 1;
                                 //$tradepoints -= 1;
 
@@ -441,7 +520,7 @@ class mosDBTable
                         $aupid = AlphaUserPointsHelper::getAnyUserReferreID( $this->buyer );
                         AlphaUserPointsHelper::newpoints( 'plgaup_request_item',$aupid, '', '', getReedemPointForMovie($mov_id));
 			//if(!$objBuyer->store()) {  return false;  }
-			
+
 			$query = "UPDATE #__jmovies_posts SET is_requested=0 WHERE id=" . (int)$this->post_id;
 			$database->setQuery( $query );
 			$database->query();
@@ -454,25 +533,25 @@ class mosDBTable
 			if($database->getErrorNum()) {
 				return false;
 			}*/
-			
+
 			$query = "DELETE FROM #__jmovies_trades WHERE id=" . (int)$this->id;
 			$database->setQuery( $query );
 			$database->query();
 			if($database->getErrorNum()) {
 				return false;
 			}
-			
+
 			$this->__SendTradeCancelMailToBuyer( false );//Redacron enabled this
 			$this->__SendTradeCancelMailToSeller( false );//Redacron enabled this
 			return true;
 		}
-		
+
 		function removeFromBuyerList()
 		{
 			$this->show_buyer = 0;
 			return $this->store();
 		}
-		
+
 		function __SendTradeCancelMailToBuyer( $pms_only=true )
 		{
 			global $database, $mosConfig_fromname, $mosConfig_mailfrom, $mosConfig_sitename, $cinConfig;
@@ -480,7 +559,7 @@ class mosDBTable
 			$objPost->load( (int)$this->post_id );
 
 			$pms_admin = $cinConfig['pms_admin'];
-		
+
 			$buyer = new synJMoviesUser( $database );
 			$buyer->loadUser( (int)$this->buyer );
 
@@ -521,7 +600,7 @@ else */mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 			global $database, $mosConfig_fromname, $mosConfig_mailfrom, $mosConfig_sitename, $cinConfig;
 			$objPost = new synJmoviesPost( $database );
 			$objPost->load( (int)$this->post_id );
-			
+
 			$pms_admin = $cinConfig['pms_admin'];
 
 			$buyer = new synJMoviesUser( $database );
@@ -555,19 +634,19 @@ else */mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 				$body .= "<br><br>" . "This is an automated message. Please do not reply.";
 				$body .= "</div>";
 				$subject = "Trade Cancelled";
-	
+
                                 if (class_exists('JUtility'))//Redacron Alteration: mosMail may soon be a thing of the past
 /*$ret = JUTility:: sendMail($mosConfig_mailfrom, $mosConfig_fromname,  $buyer->email, $subject, $body, 0, null, null, null, null, null);
 else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subject, $body, 1 );
 			}
 		}
-		
+
 		function __SendVerifiedMailToBuyer( $pms_only=true )
 		{
 			global $database, $mosConfig_fromname, $mosConfig_mailfrom, $mosConfig_sitename, $cinConfig;
 			$objPost = new synJmoviesPost( $database );
 			$objPost->load( (int)$this->post_id );
-			
+
 			$pms_admin = $cinConfig['pms_admin'];
 
 			$buyer = new synJMoviesUser( $database );
@@ -576,16 +655,16 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 			$query = "SELECT titolo `title`, titolo2 `title2`, descrizione `description` FROM #__jmovies WHERE id=" . (int)$objPost->jmovies_id;
 			$database->setQuery( $query );
 			$database->loadObject( $movie );
-			
+
 			$pms_message = " You have just verified the trade number [b]'" . $this->trade_no . "'[/b]. In which you received the";
 			$pms_message .= " item entitled [u]" . $movie->title . "[/u]. If you did not initiate this verification, please notify";
 			$pms_message .= " us immediately at [b]" . $mosConfig_mailfrom . "[/b].\n\n";
 			$pms_message .= "\n\n" . "Thank you for using " . $mosConfig_sitename;
 			$pms_message .= "\n\n[u]" . "This is an automated message. Please do not reply.[/u]";
-			
+
 			$pms_mailer = new synJMoviesPMS();
 			$pms_mailer->saveMessage( (int)$pms_admin, (int)$this->buyer, $pms_message, $buyer->username, true );
-			
+
 			if(!$pms_only)
 			{
 				$body = '<div style="font-family:Verdana, Tahoma, Arial; font-size:12px;">';
@@ -602,7 +681,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 else*/ //mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subject, $body, 1 );
 			}
 		}
-		
+
 		function __SendVerificationMailToBuyer( $pms_only=true )
 		{
 			global $database, $mosConfig_fromname, $mosConfig_mailfrom, $mosConfig_sitename, $cinConfig;
@@ -610,20 +689,20 @@ else*/ //mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subj
 
 
 			$pms_admin = $cinConfig['pms_admin'];
-			
+
 			$objPost = new synJmoviesPost( $database );
 			$objPost->load( (int)$this->post_id );
-			
+
 			$seller = new synJMoviesUser( $database );
 			$seller->loadUser( (int)$this->seller );
-			
+
 			$buyer = new synJMoviesUser( $database );
 			$buyer->loadUser( (int)$this->buyer );
 
 			$query = "SELECT titolo `title`, titolo2 `title2`, descrizione `description` FROM #__jmovies WHERE id=" . (int)$objPost->jmovies_id;
 			$database->setQuery( $query );
 			$database->loadObject( $movie );
-			
+
 			$pms_message = "This message is to confirm your recent trade request on " . $mosConfig_sitename;
 			$pms_message .= "\n\n" . "You requested an the item entitled '" . $movie->title . "'. Your trade request has been";
 			$pms_message .= " delivered to [b]" . $seller->name . "[/b], one of our users who posesses this item.";
@@ -636,10 +715,10 @@ else*/ //mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subj
              $pms_message .= "users in the community. We suggest at this time, that you kindly remove immediatly any reposted trades in your ";
              $pms_message .= "inventory, that you dont desire to trade again,to avoid future issues for yourself and others in the community.</p>";
 			$pms_message .= "\n\n[u]" . "This is an automated message. Please do not reply.[/u]";
-			
+
 			$pms_mailer = new synJMoviesPMS();
 			$pms_mailer->saveMessage( (int)$pms_admin, (int)$this->buyer, $pms_message, $buyer->username, true );
-			
+
 			if( !$pms_only )
 			{
 				$body = '<div style="font-family:Verdana, Tahoma, Arial; font-size:12px;">';
@@ -656,9 +735,9 @@ else*/ //mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subj
              $body .= "inventory, that you dont desire to trade again, to avoid future issues for yourself and others in the community.</p>";
 				$body .= "<br><br>" . "Thank you for using " . $mosConfig_sitename;
 				$body .= "<br><br>" . "This is an automated message. Please do not reply.</div>";
-				
+
 				$subject = "Trade Initiated";
-				
+
 
                         if (class_exists('JUtility'))//Redacron Alteration: mosMail may soon be a thing of the past
 /*$ret = JUTility:: sendMail($mosConfig_mailfrom, $mosConfig_fromname,  $buyer->email, $subject, $body, 0, null, null, null, null, null);
@@ -666,27 +745,27 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 
                         }
 		}
-		
+
 		function __SendMailToSeller( $pms_only=true )
 		{
 			global $database, $mosConfig_fromname, $mosConfig_mailfrom, $mosConfig_sitename, $cinConfig;
 
 			$pms_admin = $cinConfig['pms_admin'];
-			
+
 			$objPost = new synJmoviesPost( $database );
 			$objPost->load( (int)$this->post_id );
-			
+
 			$buyer = new synJMoviesUser( $database );
 			$buyer->loadUser( (int)$this->buyer );
-		
+
 			$seller = new synJMoviesUser( $database );
 			$seller->loadUser( (int)$this->seller );
-			
+
 			$query = "SELECT titolo `title`, titolo2 `title2`, descrizione `description` FROM #__jmovies WHERE id=" . (int)$objPost->jmovies_id;
 			$database->setQuery( $query );
 			$database->loadObject( $movie );
-			
-			$buyer_address = $buyer->name . "\n" . $buyer->address1 . "\n" . $buyer->address2 . "\n" . 
+
+			$buyer_address = $buyer->name . "\n" . $buyer->address1 . "\n" . $buyer->address2 . "\n" .
 						$buyer->city . "\n" . $buyer->postcode . "\n" . $buyer->state;
 
 			$pms_message = "A trade has been initiated for an item that you have posted to " . $mosConfig_sitename . ".";
@@ -700,14 +779,14 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 			$pms_message .= "\n\n[u]" . "This is an automated message. Please do not reply.[/u]";
             $pms_message .=  "\n\n<br /><p>Warning: Please do not delete any items within your account until your trade has been verified by your ";
             $pms_message .= "intended receiver. This helps to avoid future related issues for yourself and that of your intended receiver.</p>";
-			
+
 			$pms_mailer = new synJMoviesPMS();
 			$pms_mailer->saveMessage( (int)$pms_admin, (int)$this->seller, $pms_message, $seller->username, true );
-			
+
 			if(!$pms_only)	{
 				$subject = "Earn " . $mosConfig_sitename . " points - A trade has been requested";
 
-				$buyer_address = $buyer->name . "<br>" . $buyer->address1 . "<br>" . $buyer->address2 . "<br>" . 
+				$buyer_address = $buyer->name . "<br>" . $buyer->address1 . "<br>" . $buyer->address2 . "<br>" .
 							$buyer->city . "<br>" . $buyer->postcode . "<br>" . $buyer->state;
 
 				$body = '<div style="font-family:Verdana, Tahoma, Arial; font-size:12px;">';
@@ -730,7 +809,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
                         }
 		}
 	}
-	
+
 	class synJMoviesUser extends mosDBTable
 	{
 		/** @var int */
@@ -761,13 +840,13 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 		var $fax = null;
 		/** @var int */
 		var $tradepoints = null;
-		
+
 		function synJMoviesUser( &$db )
 		{
 			$this->mosDBTable( '#__users', 'id', $db );
-                       
+
 		}
-		
+
 		function loadUser( $id )
 		{
 			global $database;
@@ -783,7 +862,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 					. ' FROM #__users u, #__comprofiler p'
 					. ' WHERE p.id = u.id AND u.id=' . (int)$id;
 
-                                        
+
 			$database->setQuery( $query );
 			$database->loadObject( $row );
                         //echo "<br />";print_r($row);echo"<br />";
@@ -808,7 +887,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
                                  *
                                  * From now on, we get the points from the AlphaUserPoints component instead:
                                  * Alteration made by Redacron.com on November 22nd, 2009
-                                 * 
+                                 *
                                  */
 //print_r($this);
                                 $api_AUP = JPATH_SITE.DS.'components'.DS.'com_alphauserpoints'.DS.'helper.php';
@@ -817,16 +896,16 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
                                    require_once ($api_AUP);
                                    $points = AlphaUserPointsHelper::getUserInfo ('', $row->id);
                                    $this->tradepoints = $points->points;
-                                  
+
                                 }
                                 else $this->tradepoints = "ERROR";
 			}
 		}
-		
+
 		function canPostItem( $movie_id, &$reason, $user_id=0, $amazon=false  )
 		{
 			global $database, $my;
-			
+
 			if(is_null($user_id) || $user_id == 0)
 			{
 				if(is_null($this->id))	{
@@ -839,42 +918,42 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
                         //Make sure the user has an address:
 			$seller = new synJMoviesUser( $database );
 			$seller->loadUser($this->id);
-                        
+
                         //Now we must make sure the user gives ua an address (Redacron addition):
                         if ($seller->address1 == '' || $seller->city == '' || $seller->postcode == '' || $seller->state == '')
                         {$reason = "You need to give us your entire address for this work."; return false;}
 
 			if((is_null($movie_id) || (int)$movie_id <= 0) && !$amazon) {  $reason='NOMOVIE'; return false;  }
-			
+
 			if((is_null($movie_id) || (int)$movie_id <= 0) && $amazon) {  $reason='NOMOVIE'; return true;  }
 
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND 
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND
 						jmovies_id=" . (int)$movie_id . " AND is_requested=0";
-			
+
                         /******************************************************************************************
-                         * 
+                         *
                          *
                          *  Alteration Made by Redacron Studios on November 28, 2009
                          *  Purpose: allowing a user to post an item more than once, but not more than three times
-                         * 
-                         * 
+                         *
+                         *
                          ******************************************************************************************/
                         $database->setQuery( $query );
 			if((int)$database->loadResult() > 2) {
 				$reason='SELFPOST';
 				return false;
 			}
-			
+
 			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE jmovies_id=" . (int)$movie_id . " AND is_requested=0";
 			$database->setQuery( $query );
 			if((int)$database->loadResult() > 2) {
 				$reason = "ALREADYPOSTED";
 				return false;
 			}
-			
+
 			return true;
 		}
-		
+
 		function canRequestItem( $movie_id, &$reason, $user_id=0 )
 		{
 			global $database, $my, $mainframe, $cinConfig;
@@ -893,7 +972,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 			// Already requested 2 items on current date
 			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND
 						post_date=now()";
-                   
+
 			$database->setQuery( $query );
 			if((int)$database->loadResult() >= 3)//it would be a good idea to have more than 2 (Redacron)
 			{
@@ -904,7 +983,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 
                         $buyer = new synJMoviesUser( $database );
 			$buyer->loadUser($this->id);
-                        
+
                         //Now we must make sure the user gives ua an address (Redacron addition):
                         if ($buyer->address1 == '' || $buyer->city == '' || $buyer->postcode == '' || $buyer->state == '')
                         {$reason = "<a href='".JRoute::_("index.php?option=com_comprofiler&Itemid=300099&task=userDetails")."'>You need to give us your entire address for this work.</a>"; return false;}
@@ -918,10 +997,10 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 				$reason='INVALIDSTATUS';
 				return false;
 			}
-			
+
 			// Item is requested by the user himself
 			if(is_null($movie_id) || (int)$movie_id <= 0) {  return false;  }
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE jmovies_id=" . (int)$movie_id . " AND 
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE jmovies_id=" . (int)$movie_id . " AND
 					user_id=" . (int)$user_id . " AND is_requested=0";
 			$database->setQuery( $query );
 			if((int)$database->loadResult() > 0) {
@@ -943,7 +1022,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 			$quantity = (int)$database->loadResult();//thnis is the movie quantity
 
                                 $query = "SELECT COUNT(*) FROM #__jmovies_posts jp, #__jmovies_trades jt WHERE
-					jt.post_id = jp.id AND jp.is_requested=1 AND jp.user_id !=" . (int)$user_id . " AND 
+					jt.post_id = jp.id AND jp.is_requested=1 AND jp.user_id !=" . (int)$user_id . " AND
 					jt.buyer !=" . (int)$user_id . " AND is_sent=0 AND jp.jmovies_id=" . (int)$movie_id;
 				$database->setQuery( $query );
 				if((int)$database->loadResult() >= $quantity)
@@ -957,7 +1036,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
                          * The tradepoints we are going to use come from AlphaUserPoints:
                          *  Eventually we need to get rid of var tradepoints in the class in order to avoid trouble
                          * Alteration made by Redacron.com for mydvdtrader.com on November 22nd. 2009
-                         * 
+                         *
                          */
                      $api_AUP = JPATH_SITE.DS.'components'.DS.'com_alphauserpoints'.DS.'helper.php';
                                 if ( file_exists($api_AUP))
@@ -968,7 +1047,7 @@ else*/ mosMail( $mosConfig_mailfrom, $mosConfig_fromname, $buyer->email, $subjec
 
                                 }
                                 else $this->tradepoints = "ERROR";
-			
+
 			// Tradepoints are not enought to request current item (int)$cinConfig['trade_cost'] //change by seowebmedia
 			if((int)$this->tradepoints == 0 || $this->tradepoints < getReedemPointForMovie($movie_id))
 			{
@@ -981,12 +1060,12 @@ $objTrade->__SendMailToSeller( false );*/
 
 return true;
 		}
-		
+
 	}
-	
+
 	class synJMoviesAmazon
 	{
-	
+
 		function makeRequest($locale, $accesskey, $secretkey, $where, $function, $ItemId = '', $ResponseGroup = '')
                 {
                     $timeStamp = gmdate("Y-m-d\TH:i:s\Z");
@@ -1055,17 +1134,17 @@ return true;
 			//$request_url .= "?Service=AWSECommerceService&AWSAccessKeyId=" . $accesskey . "&AssociateTag=" . $refid . "&Operation=" . $Operation . ($ItemId != '' ? "&ItemId=" . $ItemId : '') . "&ResponseGroup=" . $ResponseGroup;
 			//echo "request is $request";
                         $xmlfile = file( $request);
-                        
+
 			$xmlcontent = implode("", $xmlfile);
 
 			return $xmlcontent;
 		}
-	
+
 		function getItemImages( $asin )
 		{
 			global $database, $cinConfig;//bear in mind that the new version of Joomla has a
                         //serious problem dealing with globals
-			
+
 			$xmlcontent = $this->callAmazonService( "ItemLookup", "Images", $asin, $cinConfig);
 			$amazon_array = $this->amazon_xml_parsexml( $xmlcontent );
 
@@ -1078,14 +1157,14 @@ return true;
 				$Request = $this->getValue( $Items, 'Request' );
 				if($this->getValue( $Request, 'IsValid', 'False' ) == 'False') { $bFail = true; }
 			}
-			
+
 			if($bFail) {
 				return array();
 			} else {
 				return $amazon_array['ItemLookupResponse'][0]['Items'][0]['Item'][0];
 			}
 		}
-	
+
 		function getItemDetail( $asin )
 		{
 			global $database, $cinConfig;
@@ -1104,7 +1183,7 @@ return true;
 				$Request = $this->getValue( $Items, 'Request' );
 				if($this->getValue( $Request, 'IsValid', 'False' ) == 'False') { $bFail = true; }
 			}
-			
+
 			if($bFail) {
 				return array();
 			} else {
@@ -1112,7 +1191,7 @@ return true;
                                 return $amazon_array['ItemLookupResponse'][0]['Items'][0]['Item'][0];
 			}
 		}
-		
+
 		# Mainfunction to parse the XML defined by URL
 		function amazon_xml_parsexml ( $xmlcontent )
 		{
@@ -1208,7 +1287,7 @@ return true;
 			}
 			return $Node;
 		}
-		
+
 		function getValue( $amazon_array, $key, $default=null, $merge=false, $seperator='' )
 		{
 			if(!isset($amazon_array[$key]))
@@ -1222,13 +1301,13 @@ return true;
 				return $amazon_array[$key][0];
 			}
 		}
-		
+
 		function saveImage( $url, $location )
 		{
 			if(trim($url) == '' || $location == '' ) { return ''; }
-			
+
 			if(basename(trim($url)) == '' ) { return ''; }
-			
+
 			$image_content = file( $url );
 			if(is_array($image_content) && count($image_content) > 0)
 			{
@@ -1244,24 +1323,24 @@ return true;
 			}
 		}
 	}
-	
+
 	class synJMoviesPMS
 	{
 		function saveMessage( $xfro_mx, $x_to_x, $xmessagex, $to_name='', $savecopy=false )
 		{
 			global $database;
-			
+
 			$uddeim_config = new uddeimconfigclass();
 			$pms_message = $xmessagex;
-			
+
 			if($uddeim_config->cryptmode == 1 || $uddeim_config->cryptmode == 2) {
 				$pms_message = strip_tags( $pms_message );
 			} else {
 				$pms_message = addslashes( strip_tags( $pms_message ) );
 			}
-			
+
 			$savedatum = time();
-                       
+
 			if($uddeim_config->cryptmode == 1 || $uddeim_config->cryptmode == 2) {
 				$pms_message = Encrypt( $pms_message, $uddeim_config->cryptkey, CRYPT_MODE_BASE64 );
 				$query = "INSERT INTO #__uddeim (fromid, toid, message, datum, disablereply, cryptmode, crypthash) VALUES"
@@ -1271,43 +1350,43 @@ return true;
 				$query = "INSERT INTO #__uddeim (fromid, toid, message, datum, disablereply) VALUES"
 						. " (" . (int)$xfro_mx . ", " . (int)$x_to_x . ", '" . $pms_message . "'," . $savedatum . ", 1)";
 			}
-                       
+
 			$database->setQuery( $query );
 			if(!$database->query()) {  return false;  }
-			
+
 			if($savecopy)
 			{
 				$copyheader = "[i]Copy of a message you sent to" . $buyer->username . "[/i]";
 				$pms_message = $pms_message . "\n\n" . $copyheader;
 				$copy_to = "To: " . $to_name;
 				if($uddeim_config->cryptmode == 1 || $uddeim_config->cryptmode == 2) {
-                                    
+
 					$pms_message = Encrypt( $pms_message, $uddeim_config->cryptkey, CRYPT_MODE_BASE64 );
-					
+
                                         $query = "INSERT INTO #__uddeim (fromid, toid, toread, message, datum, disablereply,"
 							. " systemmessage, totrashoutbox, totrashdateoutbox, cryptmode, crypthash) VALUES"
 							.  " (" . (int)$xfro_mx . ", " . (int)$xfro_mx . ", 1, '" . $pms_message . "', "
 							. $savedatum . ", 1, '" . $copy_to . "', 1, " . time() . ", 1,'" . md5($uddeim_config->cryptkey) . "')" ;
 				} else {
-				
+
                                 $query = "INSERT INTO #__uddeim (fromid, toid, toread, message, datum, disablereply,"
 							. " systemmessage, totrashoutbox, totrashdateoutbox) VALUES"
 							. " (" . (int)$xfro_mx . ", " . (int)$xfro_mx . ", 1, '" . $pms_message . "', "
 							. $savedatum . ", 1, '" . $copy_to . "', 1, " . time() . ")";
-                                                       
+
 				}
 				$database->setQuery( $query );
 				if(!$database->query()) {  return false;  }
 			}
-			
+
 			return true;
 		}
 	}
-	
+
 		/*function canPostItem( $movie_id, $user_id, $amazon=false, &$reason='' )
 		{
 			global $database, $my;
-			
+
 			$can_post = false;
 			if(is_null($user_id) || (int)$user_id == 0)
 			{
@@ -1322,7 +1401,7 @@ return true;
 			// COMMENTED BY USH ON 21/4/2008 - STARTED
 			// USER CAN POST N NUMBER OF ITEMS PER DAY BUT HE/SHE CAN REQUEST 2 ITEMS PER DAY
 			*
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND 
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND
 						post_date=now()";
 			$database->setQuery( $query );
 			if((int)$database->loadResult() >= 2)
@@ -1332,26 +1411,26 @@ return true;
 			}
 			*
 			// COMMENTED BY USH - END
-			
+
 			if((is_null($movie_id) || (int)$movie_id <= 0) && !$amazon) {  return false;  }
-			
+
 			if((is_null($movie_id) || (int)$movie_id <= 0) && $amazon) {  return true;  }
 
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND 
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE user_id=" . (int)$user_id . " AND
 						jmovies_id=" . (int)$movie_id . " AND is_requested=0";
 			$database->setQuery( $query );
-			if((int)$database->loadResult() > 0) {  
+			if((int)$database->loadResult() > 0) {
 				$reason='COMMONERROR';
 				return false;
 			}
-				
-					
+
+
 			*if($my->username)
 			{
 				if(is_null($this->user_id))
 				{
 					$can_post = true;
-				} 
+				}
 				elseif ( $my->id != $this->user_id )
 				{
 				}
@@ -1369,10 +1448,10 @@ return true;
 					if($total_posts < 2) {  $can_post = true;  }
 				}
 			}*
-			
+
 			return true;
 		}*/
-		
+
 		/*function canRequestItem( $movie_id, $user_id=0, &$reason='' )
 		{
 			global $database, $my, $mainframe;
@@ -1388,8 +1467,8 @@ return true;
 					return false;
 				}
 			}
-			
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE buyer=" . (int)$user_id . " AND 
+
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE buyer=" . (int)$user_id . " AND
 						trade_date=now()";
 			$database->setQuery( $query );
 			if((int)$database->loadResult() >= 2)
@@ -1397,7 +1476,7 @@ return true;
 				$reason='TOOMANYREQUEST';
 				return false;
 			}
-			
+
 			include_once($mainframe->getCfg('absolute_path') . "/components/com_acctexp/acctexp.class.php");
 			$subscription = new Subscription( $database );
 			$subscription->loadUserid( $my->id );
@@ -1406,16 +1485,16 @@ return true;
 				$reason='INVALIDSTATUS';
 				return false;
 			}
-			
+
 			if(is_null($movie_id) || (int)$movie_id <= 0) {  return false;  }
-			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE jmovies_id=" . (int)$movie_id . " AND 
+			$query = "SELECT COUNT(*) FROM #__jmovies_posts WHERE jmovies_id=" . (int)$movie_id . " AND
 					user_id=" . (int)$user_id . " AND is_requested=0";
 			$database->setQuery( $query );
 			if((int)$database->loadResult() > 0) {
 				return false;
 			} else {
-				$query = "SELECT COUNT(*) FROM #__jmovies_posts jp, #__jmovies_trades jt WHERE 
-					jt.post_id = jp.id AND jp.is_requested=1 AND jp.user_id !=" . (int)$user_id . " AND 
+				$query = "SELECT COUNT(*) FROM #__jmovies_posts jp, #__jmovies_trades jt WHERE
+					jt.post_id = jp.id AND jp.is_requested=1 AND jp.user_id !=" . (int)$user_id . " AND
 					jt.buyer !=" . (int)$user_id . " AND is_sent=0 AND jp.jmovies_id=" . (int)$movie_id;
 				$database->setQuery( $query );
 				if((int)$database->loadResult() > 0)
@@ -1424,7 +1503,7 @@ return true;
 					return false;
 				}
 			}
-			
+
 			return true;
 		}*/
 
