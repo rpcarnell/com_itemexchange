@@ -7,32 +7,39 @@ var handleClick = function(i, props) {
 }
 
 function Traders(props) {    
-    var imagestyle={margin: '10px', float: 'left'}; 
+    var imagestyle={margin: '10px', float: 'left', width: '80px'}; 
     var clearboth = {clear: 'both'};
     var padd = {padding: '5px'}
     console.log(props.items.length + " length is here");
+    var liLeft = {float: 'left', 'margin-right' : '10px', 'width' : '350px', 'min-height' : '140px'};
     
+     
     if (props.items.length) {
   return (
    <div>      
     <ul className="submisList">
-      {props.items.map(function(item, i) { //alert(item[0]);
+      {props.items.map(function(item, i) {  
         return (
                    
-          <li onClick={handleClick.bind(this, i, props)} key={i}> 
-          {item[2] ? <img src={itemexurl + item[2]} style={imagestyle} /> : '' }<p>Requested by {item[0]}</p> 
-  <div style={clearboth}></div>
+          <li style={liLeft} key={i}>  
+          {item[2] ? <img src={itemexurl + item[2]} style={imagestyle} /> : <img src={itemexurl + 'images/com_itemexchange/anonymous.png'} style={imagestyle} /> }
+          <p>Requested by {item[0]}</p> 
+           <p>Visit <a href={item[3]}>{item[0]}'s</a> page</p>
+          {item[4] ? <div><a href={item[5]}>You have requested from {item[0]}.</a></div> : <div>You have not requested anything from {item[0]}.</div> }
+           <div style={clearboth}></div>
           </li> );
       })}
-    </ul><br /></div>
+    </ul><div style={clearboth} /><br /></div>
   );
     }
-    else return (<div style={padd}>There are no items</div>);
+    else return (<div style={padd}>There are no requests</div>);
 }
+
 function getItemsByID(j)
-{
+{   
+	
     var id = String(j.items).replace('itemidClass_', '');
-    // alert(id);
+    document.getElementById('itemid_' + id).innerHTML = "<img style='margin-left: 50px; height: 50px;' src='"+itemexurl+"images/com_itemexchange/loading.gif' />";
     cronframe.jQuery.post(window.itemexurl+ "index.php?option=com_itemexchange&task=itemrequests", {userid: window.traderID, itemid: id},//date2send: values, prevar: prevarray, option: option, taskordering: ascdesc},
     function(data)  { 
        data = JSON.parse(data);
@@ -45,11 +52,12 @@ function getItemsByID(j)
            arrayD[0] = data[i].username; 
            arrayD[1] = data[i].buyer; 
            arrayD[2] = data[i].thumb; 
-           //alert(JSON.stringify(data[i]) );
+           arrayD[3] = data[i].userurl; 
+           arrayD[4] = data[i].requested; 
+           arrayD[5] = data[i].requestedURL; 
            data_2[i] = arrayD;
-          // alert(i);
-       }
-        // alert(JSON.stringify(data_2) );
+            
+        }
         ReactDOM.render(<Traders items={data_2} />, document.getElementById('itemid_' + id));
         jQuery('#itemid_' + id).slideDown();
     });
