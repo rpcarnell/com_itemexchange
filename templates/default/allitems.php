@@ -1,3 +1,4 @@
+<?php include_once('itemexchangemenu.php'); ?>
 <?php
 if ($this->otheruserid != $this->userid)
 {
@@ -19,7 +20,8 @@ foreach ($this->items as $item)
 {  
     ?>
 
-<div style="background: #def; margin:6px;">
+<div class="reqFromMeDiv">
+	
     <?php $img = unserialize($item->image);?>
    <img alt='<?php echo $item->item;?>' src='<?php echo JURI::base().DS."images/".$img['image'];?>' style="height: 200px; margin-right: 5px; float: left;" />
    <h2><?php echo $item->item;?></h2>
@@ -52,7 +54,7 @@ foreach ($this->items as $item)
 ?>
 </div></div>
 <script>var itemexurl = '<?php echo JUri::base();?>';</script>
-<script type="text/babel" src="<?php echo JUri::root()."components/com_itemexchange/assets/js/basics.js";?>"></script>
+<script type="text/babel" src="<?php echo JUri::root()."components/com_itemexchange/assets/js/basics.js?b=".time();?>"></script>
 <script type="text/babel" src="<?php echo JUri::root()."components/com_itemexchange/assets/js/wantown.js";?>"></script>
 
 <?php
